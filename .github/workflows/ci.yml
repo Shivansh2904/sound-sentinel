@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Job 1: Python syntax check
+  # --------------------------------------------------------------------------
+  python-check:
+    name: Python Syntax Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: training/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r training/requirements.txt
+
+      - name: Syntax check training scripts
+        run: |
+          python -m py_compile training/train.py
+          python -m py_compile training/evaluate.py
+          echo "Python syntax check passed."
+
+      - name: Lint with flake8 (warnings only)
+        run: |
+          pip install flake8 --quiet
+          # E501 = line too long (relaxed for ML scripts), W503 = line break before binary operator
+          flake8 training/ --max-line-length=120 --ignore=E501,W503,E203 --statistics || true
+
+  # --------------------------------------------------------------------------
+  # Job 2: TypeScript build
+  # --------------------------------------------------------------------------
+  typescript-build:
+    name: TypeScript Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check || npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint || true
+        # Allow lint warnings without failing CI — enforce in code review
+
+      - name: Build
+        run: npm run build
+        env:
+          # Suppress Vite's interactive prompts in CI
+          CI: true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary meta -->
+    <title>SoundSentinel — Real-time Environmental Sound Classification</title>
+    <meta
+      name="description"
+      content="Real-time in-browser environmental sound classifier powered by an ONNX-exported SVM+XGBoost ensemble trained on ESC-50. No server required — inference runs entirely in your browser via ONNX Runtime Web."
+    />
+    <meta name="author" content="Shivansh Mishra" />
+    <meta name="keywords" content="audio classification, machine learning, ONNX, ESC-50, sound recognition, WebAudio API, real-time ML" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="SoundSentinel — Real-time Environmental Sound Classification" />
+    <meta property="og:description" content="Classify environmental sounds in real time using ML inference running entirely in your browser." />
+    <meta property="og:type" content="website" />
+
+    <!-- Favicon (inline SVG data URI — no external asset needed) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>"
+    />
+
+    <!-- Preconnect for Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- ONNX Runtime Web: allow SharedArrayBuffer (requires COOP/COEP headers set in vite.config.ts) -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+
+    <style>
+      /* Prevent flash of unstyled content */
+      body {
+        background-color: #020617; /* slate-950 */
+        margin: 0;
+      }
+
+      /* Loading spinner shown before React mounts */
+      #root-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        flex-direction: column;
+        gap: 16px;
+        color: #64748b;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+      }
+
+      #root-loader .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #1e293b;
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- Pre-React loading state -->
+      <div id="root-loader">
+        <div class="spinner"></div>
+        <span>Loading SoundSentinel...</span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
