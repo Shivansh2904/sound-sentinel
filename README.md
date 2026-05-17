@@ -142,7 +142,14 @@ This will:
 4. Save `training/models/sound_classifier.pkl`
 5. Export `public/model.onnx` (used by the browser)
 
-### 4. Evaluate (Optional)
+### 4. Run Single-File Inference (Optional)
+
+```bash
+python predict.py path/to/sound.wav --model models/ensemble_model.joblib
+python predict.py path/to/sound.wav --model models/ensemble_model.joblib --json
+```
+
+### 5. Evaluate (Optional)
 
 ```bash
 python evaluate.py --data-dir data/ESC-50 --model-path models/sound_classifier.pkl
@@ -206,6 +213,7 @@ sound-sentinel/
 │   ├── outputs/                    # Confusion matrix, charts (git-ignored)
 │   ├── train.py                    # Model training script
 │   ├── evaluate.py                 # Evaluation + visualization script
+│   ├── predict.py                  # Single-file inference script
 │   └── requirements.txt            # Python dependencies
 ├── index.html                      # Vite HTML entry point
 ├── package.json

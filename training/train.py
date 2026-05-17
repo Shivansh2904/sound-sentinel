@@ -408,6 +408,15 @@ def main() -> None:
     print(classification_report(y_test, y_pred, target_names=class_names))
 
     # ------------------------------------------------------------------
+    # 5b. 5-fold cross-validation on full dataset
+    # ------------------------------------------------------------------
+    from sklearn.model_selection import cross_val_score
+    print("\nRunning 5-fold cross-validation...")
+    cv_scores = cross_val_score(ensemble, X, y, cv=5, scoring="accuracy", n_jobs=-1)
+    print(f"CV accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+    print(f"CV scores: {[f'{s:.4f}' for s in cv_scores]}")
+
+    # ------------------------------------------------------------------
     # 6. Save the full fitted model (retrain on all data for best generalization)
     # ------------------------------------------------------------------
     print("[INFO] Retraining ensemble on full dataset for final model...")
