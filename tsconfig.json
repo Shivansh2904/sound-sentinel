@@ -2,7 +2,7 @@
   "compilerOptions": {
     /* Language and environment */
     "target": "ES2020",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"],
     "useDefineForClassFields": true,
 
     /* Module resolution */
