@@ -526,7 +526,7 @@ async function runInference(
 
     const inferenceTimeMs = performance.now() - t0;
 
-    self.postMessage(
+    (self as DedicatedWorkerGlobalScope).postMessage(
       {
         type: "result",
         probabilities,
