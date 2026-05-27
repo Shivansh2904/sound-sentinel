@@ -121,11 +121,19 @@ cd sound-sentinel
 ### 2. Download ESC-50 Dataset
 
 ```bash
-# ESC-50: Environmental Sound Classification (2000 clips, 50 classes)
-git clone https://github.com/karolpiczak/ESC-50.git training/data/ESC-50
+# 1. Download ESC-50 dataset (~600 MB)
+python training/download_esc50.py --dest ./data
 ```
 
-The training script expects audio files at `training/data/ESC-50/audio/` and the metadata CSV at `training/data/ESC-50/meta/esc50.csv`.
+The helper script downloads the archive, extracts it, and verifies that 2000 clips
+plus the `meta/esc50.csv` metadata file are present. Audio lands at
+`data/ESC-50-master/audio/` and metadata at `data/ESC-50-master/meta/esc50.csv`.
+
+Prefer doing it by hand? You can also clone the dataset directly:
+
+```bash
+git clone https://github.com/karolpiczak/ESC-50.git training/data/ESC-50
+```
 
 ### 3. Train the Model
 
@@ -165,6 +173,21 @@ npm run dev
 ```
 
 Open `http://localhost:5173`, click **Start**, and allow microphone access. SoundSentinel will begin classifying sounds in real time.
+
+---
+
+## Exploratory Analysis
+
+A Jupyter notebook walks through the audio feature pipeline visually — waveform, Mel-spectrogram, MFCC matrix, and the final 80-dim feature vector consumed by the classifier:
+
+- [`training/notebooks/audio_exploration.ipynb`](training/notebooks/audio_exploration.ipynb)
+
+```bash
+pip install librosa matplotlib numpy jupyter
+jupyter notebook training/notebooks/audio_exploration.ipynb
+```
+
+Run `python training/download_esc50.py --dest ./data` first so the notebook can find sample clips under `data/ESC-50-master/audio/`.
 
 ---
 
@@ -225,8 +248,11 @@ sound-sentinel/
 │   ├── data/                       # ESC-50 dataset (git-ignored)
 │   ├── models/                     # Saved .pkl models (git-ignored)
 │   ├── outputs/                    # Confusion matrix, charts (git-ignored)
+│   ├── notebooks/
+│   │   └── audio_exploration.ipynb # Waveform / Mel-spec / MFCC walkthrough
 │   ├── tests/                      # Pytest unit tests
 │   │   └── test_predict.py         # Tests for feature extraction + label map
+│   ├── download_esc50.py           # One-shot ESC-50 download + verification
 │   ├── train.py                    # Model training script
 │   ├── evaluate.py                 # Evaluation + visualization script
 │   ├── predict.py                  # Single-file inference script

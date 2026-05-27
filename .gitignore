@@ -67,6 +67,7 @@ venv.bak/
 # Jupyter Notebooks
 .ipynb_checkpoints/
 *.ipynb
+!training/notebooks/*.ipynb
 
 # pytest
 .pytest_cache/
