@@ -36,6 +36,11 @@ jobs:
           python -m py_compile training/evaluate.py
           echo "Python syntax check passed."
 
+      - name: Run unit tests
+        run: |
+          pip install pytest soundfile
+          pytest training/tests/ -v
+
       - name: Lint with flake8 (warnings only)
         run: |
           pip install flake8 --quiet

@@ -168,6 +168,20 @@ Open `http://localhost:5173`, click **Start**, and allow microphone access. Soun
 
 ---
 
+## Testing
+
+Unit tests cover the feature-extraction pipeline and the ESC-50 label map in `training/predict.py`.
+
+```bash
+# Run unit tests
+cd training
+pytest tests/ -v
+```
+
+The test suite synthesizes short sine-wave WAV clips on the fly (no dataset download required) and verifies that `extract_features` returns a finite 80-dimensional vector and that `LABEL_MAP` contains the expected 50 ESC-50 classes.
+
+---
+
 ## Model Performance
 
 Trained on ESC-50 (80/20 stratified split), 5-fold cross-validation accuracy: **94.8%**
@@ -211,6 +225,8 @@ sound-sentinel/
 │   ├── data/                       # ESC-50 dataset (git-ignored)
 │   ├── models/                     # Saved .pkl models (git-ignored)
 │   ├── outputs/                    # Confusion matrix, charts (git-ignored)
+│   ├── tests/                      # Pytest unit tests
+│   │   └── test_predict.py         # Tests for feature extraction + label map
 │   ├── train.py                    # Model training script
 │   ├── evaluate.py                 # Evaluation + visualization script
 │   ├── predict.py                  # Single-file inference script
