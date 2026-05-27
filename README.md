@@ -5,7 +5,7 @@
 [![React](https://img.shields.io/badge/React-18.2-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-1.17-FF6F00?style=flat-square&logo=onnx&logoColor=white)](https://onnxruntime.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/shivansh-mishra/sound-sentinel/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/shivansh-mishra/sound-sentinel/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/Shivansh2904/sound-sentinel/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Shivansh2904/sound-sentinel/actions)
 
 **SoundSentinel** is a real-time environmental sound classifier that runs entirely in your browser — no server, no cloud, no latency. It captures audio from your microphone, extracts MFCC and spectral features via the WebAudio API, and runs inference through an ONNX-exported SVM+XGBoost ensemble model using ONNX Runtime Web. Point it at any soundscape and get instant predictions across 50 environmental sound classes.
 
@@ -114,7 +114,7 @@ The full pipeline (scaler + voting ensemble) is exported to ONNX using `skl2onnx
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/shivansh-mishra/sound-sentinel.git
+git clone https://github.com/Shivansh2904/sound-sentinel.git
 cd sound-sentinel
 ```
 
@@ -271,4 +271,4 @@ sound-sentinel/
 
 ## License
 
-MIT © [Shivansh Mishra](https://github.com/shivansh-mishra)
+MIT © [Shivansh Mishra](https://github.com/Shivansh2904)
