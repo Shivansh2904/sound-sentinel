@@ -31,7 +31,9 @@ interface WorkerMessage {
 
 const FFT_SIZE = 4096;           // AnalyserNode FFT size (for waveform vis)
 const CAPTURE_INTERVAL_MS = 1000; // Run inference every N ms
-const BUFFER_SIZE = 22050 * 2;   // ~2 seconds of audio at 22050 Hz
+// Samples sent per inference, at the AudioContext's 44,100 Hz rate: 1 second of
+// audio. The worker resamples it to 22,050 Hz; the model is trained on 5 s clips.
+const BUFFER_SIZE = 44100;
 
 // ---------------------------------------------------------------------------
 // Utility helpers
@@ -97,7 +99,7 @@ export default function App() {
         console.error("[App] Worker error:", msg);
         if (msg.includes("model") || msg.includes("onnx")) {
           setModelError(msg);
-          setStatusMessage("Model not found — run training/train.py first");
+          setStatusMessage("Model not found — see the README");
         }
       }
     };
@@ -211,7 +213,7 @@ export default function App() {
             pcm: snapshot,
             sampleRate: audioContext.sampleRate,
           },
-          [snapshot.buffer] // Transfer ownership — avoids copying 88KB each second
+          [snapshot.buffer] // Transfer ownership — avoids copying ~176 KB each second
         );
       }, CAPTURE_INTERVAL_MS);
 
@@ -303,7 +305,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">SoundSentinel</h1>
-              <p className="text-xs text-slate-400">Real-time environmental sound classification</p>
+              <p className="text-xs text-slate-400">In-browser environmental sound classification</p>
             </div>
           </div>
 
@@ -325,7 +327,7 @@ export default function App() {
             </div>
 
             <a
-              href="https://github.com/shivansh-mishra/sound-sentinel"
+              href="https://github.com/Shivansh2904/sound-sentinel"
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-400 hover:text-slate-200 transition-colors"
@@ -349,9 +351,10 @@ export default function App() {
           <div className="bg-red-950/60 border border-red-700/60 rounded-xl p-4 text-sm text-red-300">
             <p className="font-semibold mb-1">Model not loaded</p>
             <p className="text-red-400/80">
-              Run <code className="bg-red-900/50 px-1.5 py-0.5 rounded text-xs font-mono">python training/train.py</code> to
-              generate <code className="bg-red-900/50 px-1.5 py-0.5 rounded text-xs font-mono">public/model.onnx</code>, then
-              restart the dev server.
+              The app loads its classifier from{" "}
+              <code className="bg-red-900/50 px-1.5 py-0.5 rounded text-xs font-mono">public/model.onnx</code>. No trained
+              model ships with the repository yet, and the training script cannot export one yet. See the README for the
+              current status.
             </p>
           </div>
         )}
@@ -460,7 +463,7 @@ export default function App() {
         </div>
 
         {/* Info cards row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <InfoCard
             icon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -469,15 +472,6 @@ export default function App() {
             }
             title="50 Sound Classes"
             description="Animals, nature, human sounds, indoor, and urban environments"
-          />
-          <InfoCard
-            icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
-            }
-            title="~95% Accuracy"
-            description="SVM + XGBoost ensemble trained on the ESC-50 benchmark"
           />
           <InfoCard
             icon={

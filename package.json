@@ -1,13 +1,14 @@
 {
   "name": "sound-sentinel",
   "version": "1.0.0",
-  "description": "Real-time in-browser environmental sound classification powered by ONNX Runtime Web",
+  "description": "In-browser environmental sound classification with ONNX Runtime Web (work in progress)",
   "private": true,
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "node --test tests/links.test.mjs tests/index-html.test.mjs",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

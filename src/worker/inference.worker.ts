@@ -7,7 +7,8 @@
  * ----------------
  * 1. Load the ONNX model from /model.onnx on startup
  * 2. On each message (raw PCM Float32Array from main thread):
- *    a. Extract a 326-dimensional feature vector (matching Python training)
+ *    a. Extract a 326-dimensional feature vector (same layout as training/train.py;
+ *       the values do not match librosa's yet, see extractFeatures)
  *    b. Run ONNX Runtime Web inference
  *    c. Post class probabilities back to the main thread
  *
@@ -235,8 +236,8 @@ function dct2(x: Float32Array, nCoeffs: number): Float32Array {
 
 /**
  * Resample audio from one sample rate to another using linear interpolation.
- * For production you'd want a higher-quality resampler, but this is sufficient
- * for the feature accuracy needed at inference time.
+ * librosa.load resamples with soxr by default, so this is one more place where
+ * the browser features can differ from the training features.
  */
 function resample(pcm: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return pcm;
@@ -256,13 +257,23 @@ function resample(pcm: Float32Array, fromRate: number, toRate: number): Float32A
 /**
  * Extract the full 326-dimensional feature vector from a raw PCM buffer.
  *
- * This mirrors the Python feature extraction in training/train.py:
+ * The vector has the same layout as the one training/train.py builds with librosa:
  *   - MFCC × 4 statistics = 160 features
  *   - Mel-spectrogram × 4 statistics = 160 features
  *   - Spectral centroid × 2 = 2 features
  *   - Spectral rolloff × 2 = 2 features
  *   - Zero-crossing rate × 2 = 2 features
  *   Total: 326
+ *
+ * The values do not match librosa's yet. Known differences: the mel filterbank
+ * (HTK mel scale with unnormalised triangles; librosa defaults to the Slaney
+ * scale with area normalisation), the MFCCs are computed from these 40 bands
+ * where librosa.feature.mfcc uses 128, frames are not centred (librosa pads by
+ * n_fft / 2), the dB conversion has no 80 dB floor and is relative to 1.0 where
+ * train.py's mel statistics use power_to_db(ref=np.max), and centroid and
+ * rolloff are weighted by the power spectrum where librosa uses the magnitude.
+ * On top of that, resampling is linear interpolation, and App.tsx sends
+ * 1-second windows where train.py uses 5-second clips.
  */
 function extractFeatures(pcm: Float32Array, inputSampleRate: number): Float32Array {
   // 1. Resample to 22050 Hz to match Python training
@@ -302,7 +313,9 @@ function extractFeatures(pcm: Float32Array, inputSampleRate: number): Float32Arr
       for (let k = 0; k < nBins; k++) {
         energy += filter[k] * powerSpectra[f][k];
       }
-      // Log compression (matching librosa's power_to_db)
+      // Log compression: 10*log10(energy) relative to 1.0, with no dB floor.
+      // librosa's power_to_db clips at 80 dB below the peak, and train.py's mel
+      // statistics use ref=np.max.
       bandEnergies[f] = 10 * Math.log10(Math.max(energy, 1e-10));
     }
     return bandEnergies;
@@ -458,7 +471,9 @@ function extractFeatures(pcm: Float32Array, inputSampleRate: number): Float32Arr
 
 async function loadModel(): Promise<void> {
   try {
-    // Configure ONNX Runtime Web to use WASM backend
+    // Configure ONNX Runtime Web to use WASM backend. With wasmPaths = "/" it
+    // loads its .mjs and .wasm runtime files from the site root, and nothing puts
+    // them there yet (see vite.config.ts).
     ort.env.wasm.wasmPaths = "/";
 
     session = await ort.InferenceSession.create("/model.onnx", {
@@ -495,7 +510,7 @@ async function runInference(
   const t0 = performance.now();
 
   try {
-    // Extract features matching Python training pipeline
+    // Extract the 326 features (see extractFeatures for how they differ from train.py)
     const features = extractFeatures(pcm, sampleRate);
 
     // Create ONNX tensor (shape: [1, 326])

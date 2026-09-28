@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary meta -->
-    <title>SoundSentinel — Real-time Environmental Sound Classification</title>
+    <title>SoundSentinel — Environmental Sound Classification in the Browser</title>
     <meta
       name="description"
-      content="Real-time in-browser environmental sound classifier powered by an ONNX-exported SVM+XGBoost ensemble trained on ESC-50. No server required — inference runs entirely in your browser via ONNX Runtime Web."
+      content="Environmental sound classifier for ESC-50 that aims to run entirely in the browser with ONNX Runtime Web. Work in progress."
     />
     <meta name="author" content="Shivansh Mishra" />
-    <meta name="keywords" content="audio classification, machine learning, ONNX, ESC-50, sound recognition, WebAudio API, real-time ML" />
+    <meta name="keywords" content="audio classification, machine learning, ONNX, ESC-50, sound recognition, WebAudio API" />
 
     <!-- Open Graph -->
-    <meta property="og:title" content="SoundSentinel — Real-time Environmental Sound Classification" />
-    <meta property="og:description" content="Classify environmental sounds in real time using ML inference running entirely in your browser." />
+    <meta property="og:title" content="SoundSentinel — Environmental Sound Classification in the Browser" />
+    <meta property="og:description" content="Environmental sound classifier for ESC-50 that aims to run entirely in the browser. Work in progress." />
     <meta property="og:type" content="website" />
 
     <!-- Favicon (inline SVG data URI — no external asset needed) -->
@@ -32,9 +32,12 @@
       rel="stylesheet"
     />
 
-    <!-- ONNX Runtime Web: allow SharedArrayBuffer (requires COOP/COEP headers set in vite.config.ts) -->
-    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
-    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+    <!--
+      ONNX Runtime Web needs cross-origin isolation (COOP/COEP) for multi-threaded WASM.
+      Browsers only honour COOP/COEP as HTTP response headers, not as <meta http-equiv> tags,
+      so they are set on the dev and preview servers in vite.config.ts. Any other host has to
+      send them itself.
+    -->
 
     <style>
       /* Prevent flash of unstyled content */

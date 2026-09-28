@@ -10,16 +10,19 @@ import { resolve } from "path";
  *
  * 1. SharedArrayBuffer support — ONNX Runtime Web's multi-threaded WASM backend
  *    requires SharedArrayBuffer, which is only available in cross-origin isolated
- *    contexts. We set the required COOP/COEP headers in the dev server.
+ *    contexts. We set the required COOP/COEP headers on the dev and preview
+ *    servers below. A static host has to send the same headers itself.
  *
  * 2. Web Worker — The inference worker is bundled as a separate ES module chunk
  *    using Vite's built-in worker support (type: 'module').
  *
- * 3. ONNX WASM files — onnxruntime-web ships WASM binaries that must be served
- *    from the public directory. Vite automatically copies everything in /public
- *    to the build output root, so placing model.onnx there is sufficient.
- *    The WASM files from onnxruntime-web are referenced as /ort-wasm*.wasm URLs,
- *    so we exclude them from the bundle and let the CDN/public dir serve them.
+ * 3. ONNX Runtime Web's WASM files — `vite build` bundles onnxruntime-web into
+ *    the worker chunk and emits its .wasm binary into dist/assets/ under a
+ *    hashed name. The worker then sets `ort.env.wasm.wasmPaths = "/"`, which makes
+ *    ONNX Runtime Web load its .mjs and .wasm files from the site root instead,
+ *    and nothing puts them there yet (there is no public/ directory). Files in
+ *    public/, such as public/model.onnx once it exists, are copied to the build
+ *    output root unchanged.
  */
 export default defineConfig({
   plugins: [
