@@ -2,7 +2,9 @@
 SoundSentinel — Training Script
 ================================
 Trains an SVM + XGBoost ensemble on ESC-50 audio features extracted with librosa,
-then exports the full pipeline (scaler + ensemble) to ONNX for browser inference.
+saves it as a pickle, then tries to export it to ONNX for browser inference.
+The ONNX export does not work for this ensemble yet (see export_to_onnx), so
+the script exits with status 1 after saving the pickle.
 
 Usage
 -----
@@ -250,21 +252,29 @@ def build_ensemble(n_classes: int) -> VotingClassifier:
 # ONNX export
 # ---------------------------------------------------------------------------
 
-def export_to_onnx(model: VotingClassifier, n_features: int, output_path: Path) -> None:
+def export_to_onnx(model, n_features: int, output_path: Path) -> None:
     """
-    Export the trained VotingClassifier to ONNX format using skl2onnx.
+    Export a fitted scikit-learn classifier to ONNX format using skl2onnx.
 
     The exported model accepts a float32 array of shape [N, n_features] and
     outputs:
         - label:       int64 array [N] — predicted class indices
         - probabilities: float array [N, n_classes] — class probabilities
+
+    Raises RuntimeError if skl2onnx is missing or cannot convert the model.
+    Nothing is written to output_path in that case.
+
+    Note: skl2onnx cannot convert the SVM + XGBoost VotingClassifier built by
+    build_ensemble() (flatten_transform=True is not supported, and there is
+    no XGBoost converter registered), so exporting that model raises.
     """
     try:
         from skl2onnx import convert_sklearn
         from skl2onnx.common.data_types import FloatTensorType
-    except ImportError:
-        print("[ERROR] skl2onnx not installed. Run: pip install skl2onnx")
-        return
+    except ImportError as exc:
+        raise RuntimeError(
+            "ONNX export failed: skl2onnx is not installed (pip install skl2onnx)"
+        ) from exc
 
     print("[INFO] Exporting model to ONNX...")
 
@@ -277,17 +287,15 @@ def export_to_onnx(model: VotingClassifier, n_features: int, output_path: Path) 
             options={id(model): {"zipmap": False}},  # Return raw probability arrays
             target_opset=17,
         )
-
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "wb") as f:
-            f.write(onnx_model.SerializeToString())
-
-        size_kb = output_path.stat().st_size / 1024
-        print(f"[INFO] ONNX model saved to {output_path} ({size_kb:.1f} KB)")
-
     except Exception as exc:
-        print(f"[ERROR] ONNX export failed: {exc}")
-        print("[INFO] Model saved as .pkl only — ONNX export skipped")
+        raise RuntimeError(f"ONNX export failed: {exc}") from exc
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "wb") as f:
+        f.write(onnx_model.SerializeToString())
+
+    size_kb = output_path.stat().st_size / 1024
+    print(f"[INFO] ONNX model saved to {output_path} ({size_kb:.1f} KB)")
 
 
 # ---------------------------------------------------------------------------
@@ -369,9 +377,10 @@ def main() -> None:
     print(f"[INFO] Feature extraction complete in {time.time() - t0:.1f}s")
 
     # ------------------------------------------------------------------
-    # 2. Train/test split — use fold 5 as held-out test set (ESC-50 convention)
+    # 2. Train/test split: a random 80/20 split, stratified by class
     # ------------------------------------------------------------------
-    # We use a simple 80/20 stratified split for quick evaluation
+    # This ignores ESC-50's predefined folds, so clips cut from the same
+    # source recording can end up on both sides of the split.
     from sklearn.model_selection import train_test_split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.20, stratify=y, random_state=42
@@ -417,7 +426,8 @@ def main() -> None:
     print(f"CV scores: {[f'{s:.4f}' for s in cv_scores]}")
 
     # ------------------------------------------------------------------
-    # 6. Save the full fitted model (retrain on all data for best generalization)
+    # 6. Refit on every clip and save that model. Because no clip is held
+    #    out, evaluate.py can only measure training accuracy with it.
     # ------------------------------------------------------------------
     print("[INFO] Retraining ensemble on full dataset for final model...")
     final_ensemble = build_ensemble(n_classes)
@@ -442,7 +452,13 @@ def main() -> None:
     # 7. Export to ONNX
     # ------------------------------------------------------------------
     onnx_path = args.onnx_path
-    export_to_onnx(final_ensemble, X.shape[1], onnx_path)
+    try:
+        export_to_onnx(final_ensemble, X.shape[1], onnx_path)
+    except RuntimeError as exc:
+        print(f"\n[ERROR] {exc}")
+        print(f"[ERROR] The scikit-learn model was saved to {model_path}, "
+              f"but no ONNX model was written to {onnx_path}.")
+        sys.exit(1)
 
     print("\n" + "=" * 60)
     print(f"  Training complete! Test accuracy: {test_acc * 100:.2f}%")

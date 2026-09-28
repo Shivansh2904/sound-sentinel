@@ -10,6 +10,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from predict import extract_features, LABEL_MAP
 
+# ESC-50 categories in target order, copied from the dataset's meta/esc50.csv
+# ("target" and "category" columns). train.py uses "target" as the class label,
+# so a trained model's class indices follow this order.
+ESC50_CATEGORIES = [
+    "dog", "rooster", "pig", "cow", "frog",
+    "cat", "hen", "insects", "sheep", "crow",
+    "rain", "sea_waves", "crackling_fire", "crickets", "chirping_birds",
+    "water_drops", "wind", "pouring_water", "toilet_flush", "thunderstorm",
+    "crying_baby", "sneezing", "clapping", "breathing", "coughing",
+    "footsteps", "laughing", "brushing_teeth", "snoring", "drinking_sipping",
+    "door_wood_knock", "mouse_click", "keyboard_typing", "door_wood_creaks", "can_opening",
+    "washing_machine", "vacuum_cleaner", "clock_alarm", "clock_tick", "glass_breaking",
+    "helicopter", "chainsaw", "siren", "car_horn", "engine",
+    "train", "church_bells", "airplane", "fireworks", "hand_saw",
+]
+
 
 class TestLabelMap:
     def test_has_50_labels(self):
@@ -28,8 +44,13 @@ class TestLabelMap:
         # Spot-check a few mappings from the ESC-50 dataset
         assert LABEL_MAP[0] == "dog"
         assert LABEL_MAP[5] == "cat"
-        assert LABEL_MAP[40] == "chainsaw"
-        assert LABEL_MAP[49] == "street_music"
+        assert LABEL_MAP[6] == "hen"
+        assert LABEL_MAP[40] == "helicopter"
+        assert LABEL_MAP[41] == "chainsaw"
+        assert LABEL_MAP[49] == "hand_saw"
+
+    def test_matches_esc50_targets(self):
+        assert [LABEL_MAP[i] for i in range(50)] == ESC50_CATEGORIES
 
 
 class TestExtractFeatures:

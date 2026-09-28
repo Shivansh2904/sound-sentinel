@@ -1,8 +1,11 @@
 """
 SoundSentinel — Evaluation Script
 ===================================
-Loads a trained SoundSentinel model, evaluates it on the ESC-50 dataset,
-and generates diagnostic visualizations saved to training/outputs/.
+Loads a trained SoundSentinel model, scores it on one ESC-50 fold, and
+generates diagnostic visualizations saved to training/outputs/.
+
+train.py fits the saved model on every clip, including the fold scored here,
+so the result is training accuracy, not held-out accuracy.
 
 Usage
 -----
@@ -47,6 +50,7 @@ def plot_confusion_matrix(
     cm: np.ndarray,
     class_names: list[str],
     output_path: Path,
+    fold: int,
 ) -> None:
     """
     Render a normalized confusion matrix heatmap and save to disk.
@@ -56,6 +60,7 @@ def plot_confusion_matrix(
     cm          : Raw (unnormalized) confusion matrix from sklearn
     class_names : Ordered list of class label strings
     output_path : Where to write the PNG file
+    fold        : ESC-50 fold the matrix was computed on (shown in the title)
     """
     # Normalize row-wise so each row sums to 1.0
     cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
@@ -86,7 +91,7 @@ def plot_confusion_matrix(
 
     # Style the axes
     ax.set_title(
-        "SoundSentinel — Normalized Confusion Matrix (ESC-50)",
+        f"SoundSentinel — Normalized Confusion Matrix (ESC-50 fold {fold})",
         fontsize=16,
         fontweight="bold",
         color="white",
@@ -113,6 +118,7 @@ def plot_confusion_matrix(
 def plot_per_class_accuracy(
     per_class_acc: dict[str, float],
     output_path: Path,
+    fold: int,
 ) -> None:
     """
     Render a horizontal bar chart of per-class accuracy and save to disk.
@@ -121,6 +127,7 @@ def plot_per_class_accuracy(
     ----------
     per_class_acc : Mapping of class_name -> accuracy (0.0–1.0)
     output_path   : Where to write the PNG file
+    fold          : ESC-50 fold the accuracies were computed on (shown in the title)
     """
     # Sort descending by accuracy
     sorted_items = sorted(per_class_acc.items(), key=lambda kv: kv[1], reverse=True)
@@ -160,7 +167,7 @@ def plot_per_class_accuracy(
     ax.set_xlim(0, 1.05)
     ax.set_xlabel("Accuracy", fontsize=12, color="#a0a0c0", labelpad=10)
     ax.set_title(
-        "SoundSentinel — Per-Class Accuracy (ESC-50 Test Set)",
+        f"SoundSentinel — Per-Class Accuracy (ESC-50 fold {fold})",
         fontsize=14,
         fontweight="bold",
         color="white",
@@ -190,10 +197,10 @@ def load_test_features(
     test_fold: int = 5,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """
-    Extract features from ESC-50 clips belonging to the specified test fold.
+    Extract features from ESC-50 clips belonging to the specified fold.
 
-    ESC-50 has 5 predefined folds for cross-validation. By convention, fold 5
-    is used as the held-out test set.
+    ESC-50 has 5 predefined folds for cross-validation. train.py fits the
+    saved model on all of them, so none of them is held out from that model.
 
     Returns
     -------
@@ -212,10 +219,10 @@ def load_test_features(
 
     meta = pd.read_csv(meta_path)
     test_meta = meta[meta["fold"] == test_fold]
-    print(f"[INFO] Test fold {test_fold}: {len(test_meta)} clips")
+    print(f"[INFO] Fold {test_fold}: {len(test_meta)} clips")
 
     X_list, y_list = [], []
-    for _, row in tqdm(test_meta.iterrows(), total=len(test_meta), desc="Extracting test features"):
+    for _, row in tqdm(test_meta.iterrows(), total=len(test_meta), desc="Extracting features"):
         file_path = audio_dir / row["filename"]
         if not file_path.exists():
             continue
@@ -264,7 +271,7 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=5,
         choices=[1, 2, 3, 4, 5],
-        help="ESC-50 fold to use as test set (default: 5)",
+        help="ESC-50 fold to score (default: 5)",
     )
     return parser.parse_args()
 
@@ -293,14 +300,14 @@ def main() -> None:
     print(f"[INFO] Classes: {len(class_names)}  |  Features: {n_features}")
 
     # ------------------------------------------------------------------
-    # 2. Load test data
+    # 2. Load the clips of the chosen fold
     # ------------------------------------------------------------------
     X_test, y_test, _ = load_test_features(args.data_dir, test_fold=args.test_fold)
 
     if len(X_test) == 0:
-        sys.exit("[ERROR] No test samples found — check data directory and fold number")
+        sys.exit("[ERROR] No clips found — check data directory and fold number")
 
-    print(f"[INFO] Test set: {X_test.shape[0]} samples, {X_test.shape[1]} features")
+    print(f"[INFO] Fold {args.test_fold}: {X_test.shape[0]} samples, {X_test.shape[1]} features")
 
     # ------------------------------------------------------------------
     # 3. Predict
@@ -310,7 +317,9 @@ def main() -> None:
     y_proba = model.predict_proba(X_test)
 
     test_acc = accuracy_score(y_test, y_pred)
-    print(f"\n[RESULT] Test Accuracy: {test_acc:.4f} ({test_acc * 100:.2f}%)")
+    print(f"\n[RESULT] Accuracy on fold {args.test_fold}: {test_acc:.4f} ({test_acc * 100:.2f}%)")
+    print("[NOTE] train.py fits the saved model on every clip, including this fold,")
+    print("       so this is training accuracy, not held-out accuracy.")
 
     # ------------------------------------------------------------------
     # 4. Classification report
@@ -326,7 +335,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     cm = confusion_matrix(y_test, y_pred)
     cm_path = args.output_dir / "confusion_matrix.png"
-    plot_confusion_matrix(cm, class_names, cm_path)
+    plot_confusion_matrix(cm, class_names, cm_path, args.test_fold)
 
     # ------------------------------------------------------------------
     # 6. Per-class accuracy bar chart
@@ -339,7 +348,7 @@ def main() -> None:
         per_class_acc[name] = correct / total if total > 0 else 0.0
 
     acc_path = args.output_dir / "per_class_accuracy.png"
-    plot_per_class_accuracy(per_class_acc, acc_path)
+    plot_per_class_accuracy(per_class_acc, acc_path, args.test_fold)
 
     # ------------------------------------------------------------------
     # 7. Summary
@@ -348,7 +357,7 @@ def main() -> None:
     worst_class = min(per_class_acc, key=per_class_acc.get)
 
     print("\n" + "=" * 60)
-    print(f"  Overall Accuracy:  {test_acc * 100:.2f}%")
+    print(f"  Accuracy (fold {args.test_fold}): {test_acc * 100:.2f}%")
     print(f"  Best class:        {best_class} ({per_class_acc[best_class] * 100:.1f}%)")
     print(f"  Worst class:       {worst_class} ({per_class_acc[worst_class] * 100:.1f}%)")
     print(f"  Outputs saved to:  {args.output_dir.resolve()}")

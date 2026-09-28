@@ -93,7 +93,7 @@ def main() -> None:
         print(f"Removing zip file {zip_path}")
         zip_path.unlink()
 
-    print("Done. You can now run: python training/train.py")
+    print(f"Done. To train: cd training && python train.py --data-dir {root}")
 
 
 if __name__ == "__main__":

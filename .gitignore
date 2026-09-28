@@ -86,7 +86,9 @@ dmypy.json
 training/models/*.pkl
 training/models/*.joblib
 
-# ESC-50 dataset (large, download separately)
+# ESC-50 dataset (large, download separately).
+# download_esc50.py writes to ./data by default, so ignore both locations.
+data/
 training/data/
 
 # Generated evaluation plots
