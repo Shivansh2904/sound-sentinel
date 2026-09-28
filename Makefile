@@ -1,55 +1,38 @@
-.PHONY: install install-training install-frontend download train evaluate predict benchmark test dev build clean
+.PHONY: help install install-training install-frontend download test build clean
+
+.DEFAULT_GOAL := help
 
 PYTHON ?= python
-PIP ?= pip
+PIP ?= $(PYTHON) -m pip
+
+help:
+	@echo "Targets:"
+	@echo "  make install     Install training and frontend dependencies"
+	@echo "  make download    Download the ESC-50 dataset into ./data"
+	@echo "  make test        Run the Python and JavaScript tests"
+	@echo "  make build       Type-check and build the web app into dist/"
+	@echo "  make clean       Remove build output and Python caches"
+	@echo ""
+	@echo "Training is run by hand for now; see the README."
 
 install: install-training install-frontend
 
 install-training:
-	cd training && $(PIP) install -r requirements.txt
+	$(PIP) install -r training/requirements.txt
 
 install-frontend:
-	npm install
+	npm ci
 
-# ── Training pipeline ──────────────────────────────────
 download:
 	$(PYTHON) training/download_esc50.py --dest ./data
 
-train:
-	cd training && $(PYTHON) train.py
-
-evaluate:
-	cd training && $(PYTHON) evaluate.py
-
-predict:
-	@if [ -z "$(audio)" ]; then echo "Usage: make predict audio=path/to/sound.wav"; exit 1; fi
-	cd training && $(PYTHON) predict.py "$(audio)"
-
-benchmark:
-	@if [ -z "$(audio)" ]; then echo "Usage: make benchmark audio=path/to/sound.wav"; exit 1; fi
-	cd training && $(PYTHON) benchmark.py --audio "$(audio)" --iterations 200
-
 test:
-	cd training && pytest tests/ -v
-
-# ── Browser frontend ───────────────────────────────────
-dev:
-	npm run dev
+	cd training && $(PYTHON) -m pytest tests/ -v
+	npm test
 
 build:
 	npm run build
 
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	rm -rf dist node_modules training/models/*.joblib
-
-help:
-	@echo "Common targets:"
-	@echo "  make install            Install training + frontend deps"
-	@echo "  make download           Download ESC-50 dataset (~600 MB)"
-	@echo "  make train              Train the ensemble"
-	@echo "  make evaluate           Evaluate on test split"
-	@echo "  make predict audio=PATH Run inference on a single file"
-	@echo "  make benchmark audio=PATH  Benchmark inference latency"
-	@echo "  make test               Run Python unit tests"
-	@echo "  make dev                Run browser frontend dev server"
+	rm -rf dist training/.pytest_cache
+	find . -path ./node_modules -prune -o -type d -name __pycache__ -prune -exec rm -rf {} +

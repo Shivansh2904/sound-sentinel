@@ -1,274 +1,193 @@
-# SoundSentinel 🎙️
+# SoundSentinel
 
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![React](https://img.shields.io/badge/React-18.2-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org)
-[![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-1.17-FF6F00?style=flat-square&logo=onnx&logoColor=white)](https://onnxruntime.ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/Shivansh2904/sound-sentinel/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Shivansh2904/sound-sentinel/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-**SoundSentinel** is a real-time environmental sound classifier that runs entirely in your browser — no server, no cloud, no latency. It captures audio from your microphone, extracts MFCC and spectral features via the WebAudio API, and runs inference through an ONNX-exported SVM+XGBoost ensemble model using ONNX Runtime Web. Point it at any soundscape and get instant predictions across 50 environmental sound classes.
+SoundSentinel classifies environmental sounds into the 50 classes of the
+[ESC-50](https://github.com/karolpiczak/ESC-50) dataset. The model is trained in Python with
+librosa features and scikit-learn/XGBoost. The goal is to run it entirely in the browser: capture
+microphone audio, compute the same features in a Web Worker written in TypeScript, and classify
+them with an ONNX model through ONNX Runtime Web.
 
----
+## Status: work in progress
 
-## Architecture
+**The browser model is not shipped yet.** There is no `public/model.onnx` in this repository, and
+`train.py` cannot export one yet (see below). Without it, the web app shows a "Model not loaded"
+message and recording stays disabled.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Browser (Client Only)                         │
-│                                                                      │
-│  Microphone                                                          │
-│      │                                                               │
-│      ▼                                                               │
-│  WebAudio API                                                        │
-│  (AudioContext + AnalyserNode)                                       │
-│      │                                                               │
-│      │  Raw PCM Float32Array (every 1s)                             │
-│      ▼                                                               │
-│  Web Worker ──────────────────────────────────────────────────────  │
-│  │                                                                   │
-│  │  1. Frame segmentation (25ms frames, 10ms hop)                   │
-│  │  2. FFT → Power spectrum per frame                               │
-│  │  3. Mel filterbank → log Mel energies                            │
-│  │  4. DCT → MFCC coefficients (40)                                 │
-│  │  5. Spectral centroid, rolloff, ZCR                              │
-│  │  6. Mel-spectrogram stats (mean, std, min, max × bands)          │
-│  │                                                                   │
-│  │  Feature Vector (240-dim)                                         │
-│  │      │                                                            │
-│  │      ▼                                                            │
-│  │  ONNX Runtime Web                                                 │
-│  │  (SVM + XGBoost Ensemble)                                         │
-│  │      │                                                            │
-│  │      ▼                                                            │
-│  │  Class Probabilities (50 classes)                                 │
-│  └───────────────────────────────────────────────────────────────── │
-│                                                                      │
-│  React UI                                                            │
-│  ├── Waveform Canvas Visualization                                   │
-│  ├── Top-3 Predictions with Confidence Bars                         │
-│  └── Start / Stop Controls                                           │
-└─────────────────────────────────────────────────────────────────────┘
-```
+What works today:
 
----
+- `training/download_esc50.py` downloads ESC-50 and unpacks it into `data/ESC-50-master/`.
+- `training/train.py` extracts a 326-value feature vector per clip with librosa, trains an
+  SVM + XGBoost soft-voting ensemble, prints a classification report on a hold-out split, and saves
+  the fitted model to `training/models/sound_classifier.pkl`. It then attempts the ONNX export,
+  reports that it failed, and exits with status 1.
+- The web app type-checks, passes ESLint (`npm run lint`) and builds (`npm run build`). The Web
+  Worker contains a TypeScript port of the feature extraction (FFT, mel filterbank, DCT for the
+  MFCCs, spectral centroid, rolloff and zero-crossing rate) and the ONNX Runtime Web inference code.
+- `make test` runs the Python tests (feature extraction, the ESC-50 label map, the ONNX export
+  step, how `evaluate.py` labels its score, and the downloader, all without the dataset) and two
+  small JavaScript checks.
 
-## Features
+Known gaps, in the order they need fixing:
 
-- **Zero server-side inference** — the ONNX model runs entirely in the browser via WebAssembly
-- **Real-time classification** — predictions update every second with fresh audio
-- **50-class ESC-50 support** — dog barks, rain, chainsaw, clapping, and 46 more
-- **SVM + XGBoost ensemble** — soft-voting ensemble trained with 5-fold cross-validation
-- **MFCC + spectral features** — 240-dimensional feature vectors capturing timbre and texture
-- **Web Worker isolation** — feature extraction and inference run off the main thread, keeping the UI smooth
-- **Waveform visualization** — live canvas rendering of the captured audio signal
-- **Dark, responsive UI** — Tailwind CSS dark theme that works on desktop and mobile
-- **One-command training** — reproduce the model from scratch with `python training/train.py`
+1. **ONNX export.** skl2onnx cannot convert the `VotingClassifier` (it does not support
+   `flatten_transform=True`) and has no converter registered for `XGBClassifier`. An SVM-only
+   pipeline does convert, and the tests check that its ONNX labels match scikit-learn's.
+2. **The worker cannot load ONNX Runtime Web's runtime files.** It sets
+   `ort.env.wasm.wasmPaths = "/"`, so ONNX Runtime Web requests its `.mjs` and `.wasm` files from
+   the site root, and nothing serves them there: `vite build` emits the `.wasm` into `dist/assets/`
+   under a hashed name, and there is no `public/` directory.
+3. **Browser features do not match the training features yet.** The TypeScript port differs from
+   librosa in several places: mel scale and filter normalisation, the number of mel bands the MFCCs
+   are computed from, frame centring, the dB reference, and whether centroid and rolloff use the
+   magnitude or the power spectrum. The app also sends one-second windows, while the model is
+   trained on five-second clips. A test comparing the worker's output with librosa is needed
+   before the browser predictions can mean anything.
+4. **`predict.py` and `benchmark.py` do not work with the trained model.** They expect a different
+   file name, a bare estimator rather than the dictionary `train.py` saves, and an 80-value MFCC
+   summary rather than the 326-value vector.
+5. **Evaluation.** `train.py` refits the saved model on every clip, and `evaluate.py` then scores
+   one ESC-50 fold with it (fold 5 by default), so it measures training accuracy, not test
+   accuracy. The hold-out split in `train.py` is random (stratified by class) and ignores ESC-50's
+   folds, so clips cut from the same source recording can end up on both sides of it.
 
----
+No accuracy figure is given here. One will be added once evaluation uses ESC-50's official folds,
+together with the script that produces it.
 
-## Tech Stack
+## How it works
 
-| Layer | Technology |
+### Training (`training/train.py`)
+
+Each clip is loaded at 22,050 Hz and padded or trimmed to 5 seconds. Features use librosa's default framing
+(2,048-sample FFT, 512-sample hop) and are summarised over time:
+
+| Features | Values |
 |---|---|
-| ML Training | Python 3.11, scikit-learn, XGBoost, librosa |
-| Model Export | skl2onnx → ONNX format |
-| Browser Inference | ONNX Runtime Web (WebAssembly backend) |
-| Audio Capture | WebAudio API (`getUserMedia`, `AnalyserNode`) |
-| Feature Extraction | Custom JS FFT + Mel filterbank in Web Worker |
-| Frontend Framework | React 18 + TypeScript 5 |
-| Build Tool | Vite 5 |
-| Styling | Tailwind CSS 3 |
-| CI | GitHub Actions |
+| 40 MFCCs: mean, std, min, max | 160 |
+| 40-band log-mel spectrogram: mean, std, min, max per band | 160 |
+| Spectral centroid, spectral rolloff (85%), zero-crossing rate: mean and std | 6 |
+| **Total** | **326** |
 
----
+The classifier is a soft-voting ensemble of two pipelines, each with a `StandardScaler`: an RBF SVM
+(`C=10`, `gamma="scale"`) and XGBoost (300 trees, depth 6).
 
-## How It Works
+### Browser (`src/`)
 
-### ML Methodology
+- `App.tsx` captures microphone audio with the WebAudio API into a ring buffer and draws the
+  waveform on a canvas.
+- Once a second it sends the buffered audio to `worker/inference.worker.ts`, which resamples it to
+  22,050 Hz, computes the feature vector and runs `public/model.onnx` with ONNX Runtime Web (WASM).
+  The app shows the top three classes.
+- Audio is never uploaded. Capture, feature extraction and inference all happen in the page.
 
-**Feature Extraction (librosa)**
+## Getting started
 
-For each audio clip, the training script extracts a 240-dimensional feature vector:
-
-- **MFCC** (40 coefficients × 4 statistics = 160 features): Mean, standard deviation, min, and max of each MFCC coefficient across all frames. MFCCs capture the spectral envelope of sound in a perceptually meaningful way.
-- **Mel-spectrogram statistics** (40 bands × 4 statistics = 160 features): Per-band mean, std, min, max of the log-Mel spectrogram — captures energy distribution across frequency bands over time.
-- **Spectral centroid** (mean + std = 2 features): Weighted mean of frequencies, indicating brightness.
-- **Spectral rolloff** (mean + std = 2 features): Frequency below which 85% of spectral energy falls.
-- **Zero-crossing rate** (mean + std = 2 features): Rate of sign changes — useful for distinguishing voiced vs. unvoiced sounds.
-
-Total: **326 features** (see `training/train.py` for exact dimensions).
-
-**Model**
-
-An SVM (RBF kernel, `C=10`, `gamma=scale`) and XGBoost (`n_estimators=300`, `max_depth=6`) are trained independently with `StandardScaler` normalization. A `VotingClassifier` combines their predicted probabilities via soft voting, achieving ~95% accuracy on the ESC-50 test split.
-
-**ONNX Export**
-
-The full pipeline (scaler + voting ensemble) is exported to ONNX using `skl2onnx`. The browser loads `public/model.onnx` and runs inference via ONNX Runtime Web's WebAssembly backend — no Python runtime needed in the browser.
-
----
-
-## Quick Start
-
-### 1. Clone the Repository
+Requirements: Python 3.11, Node.js 20 or later, and `make` (optional, the commands behind each
+target are in the `Makefile`).
 
 ```bash
 git clone https://github.com/Shivansh2904/sound-sentinel.git
 cd sound-sentinel
+make install      # pip install -r training/requirements.txt, then npm ci
 ```
 
-### 2. Download ESC-50 Dataset
+### Get the data
 
 ```bash
-# 1. Download ESC-50 dataset (~600 MB)
-python training/download_esc50.py --dest ./data
+make download     # same as: python training/download_esc50.py --dest ./data
 ```
 
-The helper script downloads the archive, extracts it, and verifies that 2000 clips
-plus the `meta/esc50.csv` metadata file are present. Audio lands at
-`data/ESC-50-master/audio/` and metadata at `data/ESC-50-master/meta/esc50.csv`.
+This downloads the ESC-50 archive from GitHub (a large download), unpacks it into
+`data/ESC-50-master/` and checks that the audio and `meta/esc50.csv` are present. `data/` is
+git-ignored.
 
-Prefer doing it by hand? You can also clone the dataset directly:
-
-```bash
-git clone https://github.com/karolpiczak/ESC-50.git training/data/ESC-50
-```
-
-### 3. Train the Model
+### Train
 
 ```bash
 cd training
-pip install -r requirements.txt
-python train.py --data-dir data/ESC-50 --output-dir models
+python train.py --data-dir ../data/ESC-50-master --output-dir models --onnx-path ../public/model.onnx
 ```
 
-This will:
-1. Extract features from all 2000 audio clips (~5 minutes)
-2. Train the SVM + XGBoost ensemble with 5-fold CV
-3. Print a full classification report
-4. Save `training/models/sound_classifier.pkl`
-5. Export `public/model.onnx` (used by the browser)
+`--no-cv` skips the extra cross-validation of the SVM on the training split. As described above, the
+script saves `training/models/sound_classifier.pkl` and then exits with status 1 because the ONNX
+export fails.
 
-### 4. Run Single-File Inference (Optional)
+### Tests
 
 ```bash
-python predict.py path/to/sound.wav --model models/ensemble_model.joblib
-python predict.py path/to/sound.wav --model models/ensemble_model.joblib --json
+make test         # pytest in training/, then npm test
 ```
 
-### 5. Evaluate (Optional)
+### Web app
 
 ```bash
-python evaluate.py --data-dir data/ESC-50 --model-path models/sound_classifier.pkl
-# Outputs: training/outputs/confusion_matrix.png, per_class_accuracy.png
+npm run dev       # http://localhost:5173
 ```
 
-### 5. Run the Web App
+Until `public/model.onnx` exists, the page shows the "Model not loaded" message.
 
-```bash
-# From project root
-npm install
-npm run dev
-```
+### Notebook
 
-Open `http://localhost:5173`, click **Start**, and allow microphone access. SoundSentinel will begin classifying sounds in real time.
+[`training/notebooks/audio_exploration.ipynb`](training/notebooks/audio_exploration.ipynb) plots a
+clip's waveform, mel spectrogram and MFCCs. Run `make download` first; it reads clips from
+`data/ESC-50-master/audio/`.
 
----
-
-## Exploratory Analysis
-
-A Jupyter notebook walks through the audio feature pipeline visually — waveform, Mel-spectrogram, MFCC matrix, and the final 80-dim feature vector consumed by the classifier:
-
-- [`training/notebooks/audio_exploration.ipynb`](training/notebooks/audio_exploration.ipynb)
-
-```bash
-pip install librosa matplotlib numpy jupyter
-jupyter notebook training/notebooks/audio_exploration.ipynb
-```
-
-Run `python training/download_esc50.py --dest ./data` first so the notebook can find sample clips under `data/ESC-50-master/audio/`.
-
----
-
-## Testing
-
-Unit tests cover the feature-extraction pipeline and the ESC-50 label map in `training/predict.py`.
-
-```bash
-# Run unit tests
-cd training
-pytest tests/ -v
-```
-
-The test suite synthesizes short sine-wave WAV clips on the fly (no dataset download required) and verifies that `extract_features` returns a finite 80-dimensional vector and that `LABEL_MAP` contains the expected 50 ESC-50 classes.
-
----
-
-## Model Performance
-
-Trained on ESC-50 (80/20 stratified split), 5-fold cross-validation accuracy: **94.8%**
-
-| Class | Precision | Recall | F1-Score |
-|---|---|---|---|
-| Dog | 0.97 | 0.95 | 0.96 |
-| Rain | 0.98 | 0.97 | 0.97 |
-| Crying baby | 0.96 | 0.94 | 0.95 |
-| Door knock | 0.93 | 0.92 | 0.93 |
-| Helicopter | 0.97 | 0.96 | 0.96 |
-| Chainsaw | 0.95 | 0.97 | 0.96 |
-| Clapping | 0.94 | 0.93 | 0.94 |
-| Siren | 0.98 | 0.97 | 0.97 |
-| Footsteps | 0.91 | 0.90 | 0.90 |
-| Keyboard typing | 0.96 | 0.95 | 0.95 |
-| **Macro Average** | **0.95** | **0.94** | **0.95** |
-
----
-
-## Project Structure
+## Project layout
 
 ```
 sound-sentinel/
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # GitHub Actions CI (Python + Node)
-├── public/
-│   └── model.onnx                  # Exported ONNX model (generated by train.py)
+├── .github/workflows/ci.yml        # pytest, flake8, JS tests, type-check, ESLint, build
 ├── src/
-│   ├── components/
-│   │   └── WaveformCanvas.tsx      # Canvas waveform visualization component
-│   ├── constants/
-│   │   └── labels.ts               # ESC-50 class label definitions
-│   ├── worker/
-│   │   └── inference.worker.ts     # Web Worker: feature extraction + ONNX inference
-│   ├── App.tsx                     # Main React app component
-│   ├── main.tsx                    # React entry point
-│   └── index.css                   # Global styles + Tailwind directives
+│   ├── App.tsx                     # UI, microphone capture, worker messaging
+│   ├── components/WaveformCanvas.tsx
+│   ├── constants/labels.ts         # ESC-50 display names, by target index
+│   └── worker/inference.worker.ts  # TypeScript feature extraction + ONNX Runtime Web
+├── tests/                          # npm test (node:test)
 ├── training/
-│   ├── data/                       # ESC-50 dataset (git-ignored)
-│   ├── models/                     # Saved .pkl models (git-ignored)
-│   ├── outputs/                    # Confusion matrix, charts (git-ignored)
-│   ├── notebooks/
-│   │   └── audio_exploration.ipynb # Waveform / Mel-spec / MFCC walkthrough
-│   ├── tests/                      # Pytest unit tests
-│   │   └── test_predict.py         # Tests for feature extraction + label map
-│   ├── download_esc50.py           # One-shot ESC-50 download + verification
-│   ├── train.py                    # Model training script
-│   ├── evaluate.py                 # Evaluation + visualization script
-│   ├── predict.py                  # Single-file inference script
-│   └── requirements.txt            # Python dependencies
-├── index.html                      # Vite HTML entry point
+│   ├── download_esc50.py           # fetch and unpack ESC-50 into ./data
+│   ├── train.py                    # features, training, ONNX export
+│   ├── evaluate.py                 # confusion matrix and per-class plots
+│   ├── predict.py                  # single-file CLI (see known gaps)
+│   ├── benchmark.py                # latency CLI (see known gaps)
+│   ├── notebooks/audio_exploration.ipynb
+│   ├── tests/                      # pytest
+│   └── requirements.txt
+├── Makefile
+├── eslint.config.js
+├── index.html
 ├── package.json
-├── tailwind.config.js
-├── postcss.config.js
-├── tsconfig.json
-├── vite.config.ts
-├── .gitignore
-└── LICENSE
+└── vite.config.ts
 ```
 
----
+## Dataset and licence
+
+This project uses ESC-50, created by Karol J. Piczak. The dataset is not included in this
+repository; `download_esc50.py` fetches it from the author's GitHub repository. ESC-50 is
+released under the [Creative Commons Attribution-NonCommercial licence](http://creativecommons.org/licenses/by-nc/3.0/)
+(the ESC-10 subset is CC BY), and per-clip attributions are in the dataset's `LICENSE` file. Keep
+that licence in mind before using the data, or a model trained on it, commercially.
+
+If you use ESC-50, please cite:
+
+> K. J. Piczak. ESC: Dataset for Environmental Sound Classification. *Proceedings of the 23rd
+> Annual ACM Conference on Multimedia*, Brisbane, Australia, 2015.
+> [doi:10.1145/2733373.2806390](https://doi.org/10.1145/2733373.2806390)
+
+```bibtex
+@inproceedings{piczak2015dataset,
+  title = {{ESC}: {Dataset} for {Environmental Sound Classification}},
+  author = {Piczak, Karol J.},
+  booktitle = {Proceedings of the 23rd {Annual ACM Conference} on {Multimedia}},
+  date = {2015-10-13},
+  doi = {10.1145/2733373.2806390},
+  location = {{Brisbane, Australia}},
+  publisher = {{ACM Press}},
+  pages = {1015--1018}
+}
+```
 
 ## License
 
-MIT © [Shivansh Mishra](https://github.com/Shivansh2904)
+The code in this repository is MIT licensed, see [LICENSE](LICENSE). The MIT licence does not
+cover ESC-50.
