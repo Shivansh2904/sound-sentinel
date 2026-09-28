@@ -23,7 +23,6 @@ export function WaveformCanvas({
   height = 120,
 }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -39,7 +39,7 @@ warnings.filterwarnings("ignore")
 
 # Import shared feature extractor from train.py in the same directory
 sys.path.insert(0, str(Path(__file__).parent))
-from train import extract_features, SAMPLE_RATE, DURATION
+from train import extract_features  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +314,6 @@ def main() -> None:
     # ------------------------------------------------------------------
     print("[INFO] Running predictions...")
     y_pred = model.predict(X_test)
-    y_proba = model.predict_proba(X_test)
 
     test_acc = accuracy_score(y_test, y_pred)
     print(f"\n[RESULT] Accuracy on fold {args.test_fold}: {test_acc:.4f} ({test_acc * 100:.2f}%)")

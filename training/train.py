@@ -23,7 +23,6 @@ Expected layout:
 """
 
 import argparse
-import os
 import sys
 import time
 import warnings
@@ -36,7 +35,7 @@ import pandas as pd
 from sklearn.ensemble import VotingClassifier
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
 from tqdm import tqdm

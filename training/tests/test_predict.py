@@ -8,7 +8,7 @@ import pytest
 # Make predict importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from predict import extract_features, LABEL_MAP
+from predict import extract_features, LABEL_MAP  # noqa: E402
 
 # ESC-50 categories in target order, copied from the dataset's meta/esc50.csv
 # ("target" and "category" columns). train.py uses "target" as the class label,

@@ -41,11 +41,11 @@ jobs:
           pip install pytest soundfile
           pytest training/tests/ -v
 
-      - name: Lint with flake8 (warnings only)
+      - name: Lint with flake8
         run: |
           pip install flake8 --quiet
           # E501 = line too long (relaxed for ML scripts), W503 = line break before binary operator
-          flake8 training/ --max-line-length=120 --ignore=E501,W503,E203 --statistics || true
+          flake8 training/ --max-line-length=120 --ignore=E501,W503,E203 --statistics
 
   # --------------------------------------------------------------------------
   # Job 2: TypeScript build
@@ -67,12 +67,14 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Test
+        run: npm test
+
       - name: Type check
         run: npm run type-check || npx tsc --noEmit
 
       - name: Lint
-        run: npm run lint || true
-        # Allow lint warnings without failing CI — enforce in code review
+        run: npm run lint
 
       - name: Build
         run: npm run build

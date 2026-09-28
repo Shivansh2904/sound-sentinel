@@ -8,7 +8,6 @@ https://github.com/karolpiczak/ESC-50
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import urllib.request
 import zipfile

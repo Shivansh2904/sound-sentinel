@@ -17,7 +17,7 @@ import numpy as np
 
 # Make predict importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from predict import extract_features  # type: ignore
+from predict import extract_features  # type: ignore  # noqa: E402
 
 
 def benchmark(model_path: str, audio_path: str, iterations: int = 100) -> dict:
@@ -35,7 +35,7 @@ def benchmark(model_path: str, audio_path: str, iterations: int = 100) -> dict:
     feature_ms = (time.perf_counter() - t0) * 1000
     print(f"  feature extraction: {feature_ms:.1f} ms")
 
-    print(f"\nWarming up (10 iterations)...")
+    print("\nWarming up (10 iterations)...")
     for _ in range(10):
         model.predict(features)
 
