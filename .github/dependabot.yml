@@ -3,20 +3,28 @@ updates:
   - package-ecosystem: "pip"
     directory: "/training"
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
+    open-pull-requests-limit: 2
     labels: ["dependencies", "training"]
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
+    open-pull-requests-limit: 2
     labels: ["dependencies", "frontend"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
     labels: ["dependencies", "github-actions"]
